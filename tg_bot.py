@@ -11,6 +11,8 @@ import requests
 import os
 from dotenv import load_dotenv
 
+print("Токен:", TELEGRAM_BOT_TOKEN)
+
 # --- Загрузка переменных окружения ---
 load_dotenv()
 
