@@ -17,7 +17,7 @@ load_dotenv()
 # Получение токена из .env
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 LAWYER_TG_ID = int(os.getenv("LAWYER_TG_ID", "5981472079"))
-VK_WEBHOOK_URL = os.getenv("VK_WEBHOOK_URL", "https://vk-tg-bankruptcy-bot.onrender.com/webhook/telegram")
+VK_WEBHOOK_URL = os.getenv("VK_WEBHOOK_URL", "https://vk-tg-bankruptcy-bot.onrender.com/webhook/telegram ")
 
 # --- Состояния FSM ---
 CREATE_POST, SEND_ALL, GENERATE_PDF = range(3)
