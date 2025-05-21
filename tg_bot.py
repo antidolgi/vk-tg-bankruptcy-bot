@@ -10,8 +10,9 @@ from telegram.ext import (
 import requests
 import os
 from dotenv import load_dotenv
-
+import asyncio
 import nest_asyncio
+
 nest_asyncio.apply()
 
 # --- Загрузка переменных окружения ---
