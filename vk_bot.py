@@ -55,7 +55,7 @@ def callback():
 
             keyboard = {
                 "one_time": False,
-                "buttons": [[{"action": {"type": "text", "label": btn}] for btn in buttons]
+                "buttons": [[{"action": {"type": "text", "label": btn}}] for btn in buttons]
             }
 
             vk.messages.send(
