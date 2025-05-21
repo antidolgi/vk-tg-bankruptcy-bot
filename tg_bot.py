@@ -13,11 +13,13 @@ from dotenv import load_dotenv
 
 # --- Загрузка переменных окружения ---
 load_dotenv()
-print("Токен:", TELEGRAM_BOT_TOKEN)
 
 TELEGRAM_BOT_TOKEN = os.getenv("7661209413:AAGGkRHIMmZexvLSYZiKHmn3ZE851ZuYKsY")
 LAWYER_TG_ID = int(os.getenv("LAWYER_TG_ID", "5981472079"))
 VK_WEBHOOK_URL = os.getenv("VK_WEBHOOK_URL", "https://vk-tg-bankruptcy-bot.onrender.com/webhook/telegram")
+
+if not TELEGRAM_BOT_TOKEN or TELEGRAM_BOT_TOKEN == "7661209413:AAGGkRHIMmZexvLSYZiKHmn3ZE851ZuYKsY":
+    raise ValueError("Не указан TELEGRAM_BOT_TOKEN в .env или он равен '7661209413:AAGGkRHIMmZexvLSYZiKHmn3ZE851ZuYKsY'")
 
 # --- Состояния FSM (если используем) ---
 CREATE_POST, SEND_ALL, GENERATE_PDF = range(3)
