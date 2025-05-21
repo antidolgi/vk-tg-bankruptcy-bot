@@ -14,9 +14,9 @@ from dotenv import load_dotenv
 # --- Загрузка переменных окружения ---
 load_dotenv()
 
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-LAWYER_TG_ID = int(os.getenv("LAWYER_TG_ID", "123456789"))
-VK_WEBHOOK_URL = os.getenv("VK_WEBHOOK_URL", "https://ваш-проект.onrender.com/webhook/telegram")
+TELEGRAM_BOT_TOKEN = os.getenv("661209413:AAG8IwaGgV9tkuBwv24ZCH3SiGt5SN8G94I")
+LAWYER_TG_ID = int(os.getenv("LAWYER_TG_ID", "5981472079"))
+VK_WEBHOOK_URL = os.getenv("VK_WEBHOOK_URL", "https://vk-tg-bankruptcy-bot.onrender.com/webhook/telegram")
 
 # --- Состояния FSM (если используем) ---
 CREATE_POST, SEND_ALL, GENERATE_PDF = range(3)
@@ -78,7 +78,7 @@ async def handle_generate_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     text = update.message.text
     pdf = FPDF()
-    pdf.add_font('DejaVu', '', 'DejaVuSansCondensed.ttf', uni=True)
+    pdf.add_font('DejaVu', '', 'DejaVuSans.ttf', uni=True)
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
     pdf.set_font("DejaVu", size=12)
