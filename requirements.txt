@@ -6,4 +6,3 @@ phonenumbers
 schedule
 requests
 pandas
-sqlite3
