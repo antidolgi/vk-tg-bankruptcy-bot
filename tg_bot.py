@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 # --- Загрузка переменных окружения ---
 load_dotenv()
 
-TELEGRAM_BOT_TOKEN = os.getenv("661209413:AAG8IwaGgV9tkuBwv24ZCH3SiGt5SN8G94I")
+TELEGRAM_BOT_TOKEN = os.getenv("7661209413:AAG8IwaGgV9tkuBwv24ZCH3SiGt5SN8G94I")
 LAWYER_TG_ID = int(os.getenv("LAWYER_TG_ID", "5981472079"))
 VK_WEBHOOK_URL = os.getenv("VK_WEBHOOK_URL", "https://vk-tg-bankruptcy-bot.onrender.com/webhook/telegram")
 
