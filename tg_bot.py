@@ -7,18 +7,18 @@ from telegram.ext import (
     ContextTypes,
     ConversationHandler
 )
+from flask import Flask
 import requests
 import os
 from dotenv import load_dotenv
 import asyncio
 import nest_asyncio
+from threading import Thread
 
 nest_asyncio.apply()
-
-# --- Загрузка переменных окружения ---
 load_dotenv()
 
-# Получение токена из .env
+# --- Загрузка переменных окружения ---
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 LAWYER_TG_ID = int(os.getenv("LAWYER_TG_ID", "5981472079"))
 VK_WEBHOOK_URL = os.getenv("VK_WEBHOOK_URL", "https://vk-tg-bankruptcy-bot.onrender.com/webhook/telegram ")
@@ -27,7 +27,6 @@ VK_WEBHOOK_URL = os.getenv("VK_WEBHOOK_URL", "https://vk-tg-bankruptcy-bot.onren
 CREATE_POST, SEND_ALL, GENERATE_PDF = range(3)
 
 # --- Команды ---
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_keyboard = [["Создать пост", "Рассылка всем"], ["Сформировать PDF"]]
     markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
@@ -50,7 +49,6 @@ async def generate_pdf_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return GENERATE_PDF
 
 # --- Обработка ввода ---
-
 async def handle_create_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
     post_text = update.message.text
     try:
@@ -103,12 +101,21 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Действие отменено.")
     return ConversationHandler.END
 
+# === Flask сервер ===
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Telegram bot is running", 200
+
+def run_server():
+    port = int(os.getenv("PORT", "10000"))
+    app.run(host="0.0.0.0", port=port)
+
 # --- Запуск бота ---
 async def main():
-    # Создаем приложение через ApplicationBuilder
     application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
-    # --- Регистрация команд ---
     conv_handler = ConversationHandler(
         entry_points=[
             CommandHandler("create_post", create_post),
@@ -129,6 +136,9 @@ async def main():
     print("Telegram-бот запущен...")
     await application.run_polling()
 
+# --- Запуск Flask + бота ---
 if __name__ == "__main__":
-    import asyncio
+    server_thread = Thread(target=run_server, daemon=True)
+    server_thread.start()
+
     asyncio.run(main())
