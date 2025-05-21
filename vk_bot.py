@@ -48,16 +48,21 @@ def callback():
         message_text = data['object']['message']['text'].strip().lower()
 
         if message_text in ['привет', 'start', 'старт']:
-            buttons = ["Физическое лицо", "Юридическое лицо", "Взыскание долгов"]
-            vk.messages.send(
-                user_id=user_id,
-                message="Выберите, кто вы:",
-                keyboard=json.dumps({
-                    "one_time": False,
-                    "buttons": [[{"action": {"type": "text", "label": btn}} for btn in buttons]
-                }, ensure_ascii=False),
-                random_id=0
-            )
+    buttons = ["Физическое лицо", "Юридическое лицо", "Взыскание долгов"]
+
+    keyboard = {
+        "one_time": False,
+        "buttons": [
+            [{"action": {"type": "text", "label": btn}} for btn in buttons]
+        ]
+    }
+
+    vk.messages.send(
+        user_id=user_id,
+        message="Выберите, кто вы:",
+        keyboard=json.dumps(keyboard, ensure_ascii=False),
+        random_id=0
+    )
 
     return 'ok', 200
 
