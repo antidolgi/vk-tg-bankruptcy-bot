@@ -11,6 +11,9 @@ import requests
 import os
 from dotenv import load_dotenv
 
+import nest_asyncio
+nest_asyncio.apply()
+
 # --- Загрузка переменных окружения ---
 load_dotenv()
 
