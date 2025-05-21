@@ -1,99 +1,127 @@
-from flask import Flask, request, jsonify, render_template
-import vk_api
-from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
+from telegram import Update, ReplyKeyboardMarkup
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    MessageHandler,
+    filters,
+    ContextTypes,
+    ConversationHandler
+)
+import requests
 import os
 from dotenv import load_dotenv
-import sqlite3
-import json
-from datetime import datetime
 
+# --- Загрузка переменных окружения ---
 load_dotenv()
 
-app = Flask(__name__)
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+LAWYER_TG_ID = int(os.getenv("LAWYER_TG_ID", "5981472079"))
+VK_WEBHOOK_URL = os.getenv("VK_WEBHOOK_URL", "https://vk-tg-bankruptcy-bot.onrender.com/webhook/telegram ")
 
-GROUP_TOKEN = os.getenv("VK_GROUP_TOKEN")
-GROUP_ID = os.getenv("VK_GROUP_ID")
-CONFIRMATION_TOKEN = os.getenv("VK_CALLBACK_CONFIRMATION_TOKEN")
+# --- Состояния FSM ---
+CREATE_POST, SEND_ALL, GENERATE_PDF = range(3)
 
-vk_session = vk_api.VkApi(token=GROUP_TOKEN)
-vk = vk_session.get_api()
+# --- Команды ---
 
-# --- Подключение к БД ---
-conn = sqlite3.connect('clients.db', check_same_thread=False)
-cursor = conn.cursor()
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS bankruptcy_applications (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,
-        phone TEXT,
-        city TEXT,
-        debts TEXT,
-        total_debt REAL,
-        income REAL,
-        property_info TEXT,
-        court_cases TEXT,
-        wants_bankruptcy TEXT
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    reply_keyboard = [["Создать пост", "Рассылка всем"], ["Сформировать PDF"]]
+    markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
+    
+    await update.message.reply_text(
+        "Здравствуйте! Выберите действие:",
+        reply_markup=markup
     )
-''')
-conn.commit()
 
-# --- Роут для Callback API ---
-@app.route('/callback', methods=['POST'])
-def callback():
-    data = request.json
+async def create_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Введите текст поста:")
+    return CREATE_POST
 
-    if data.get('type') == 'confirmation':
-        return CONFIRMATION_TOKEN, 200
+async def send_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Введите текст для рассылки:")
+    return SEND_ALL
 
-    elif data.get('type') == 'message_new':
-        user_id = data['object']['message']['from_id']
-        message_text = data['object']['message']['text'].strip().lower()
+async def generate_pdf_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Введите текст для PDF:")
+    return GENERATE_PDF
 
-        # --- Приветствие с кнопками ---
-        if message_text in ['привет', 'start', 'старт']:
-            buttons = ["Физическое лицо", "Юридическое лицо", "Взыскание долгов"]
+# --- Обработка ввода ---
 
-            keyboard = {
-                "one_time": False,
-                "buttons": [[{"action": {"type": "text", "label": btn}}] for btn in buttons]
-            }
+async def handle_create_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    post_text = update.message.text
+    try:
+        response = requests.post(VK_WEBHOOK_URL, json={"text": post_text})
+        if response.status_code == 200:
+            await update.message.reply_text("Пост отправлен во ВК!")
+        else:
+            await update.message.reply_text(f"Ошибка {response.status_code}")
+    except Exception as e:
+        print("Ошибка при отправке:", e)
+        await update.message.reply_text("Не удалось отправить во ВК.")
+    return ConversationHandler.END
 
-            vk.messages.send(
-                user_id=user_id,
-                message="Выберите, кто вы:",
-                keyboard=json.dumps(keyboard, ensure_ascii=False),
-                random_id=0
-            )
-
-        return 'ok', 200
-
-    return 'ok', 200
-
-
-# --- Роут для приёма постов из Telegram ---
-@app.route('/webhook/telegram', methods=['POST'])
-def receive_telegram_post():
-    data = request.json
-    post_text = data.get("text")
-    if post_text:
+async def handle_send_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message_text = update.message.text
+    from vk_bot import load_clients_db
+    users = load_clients_db()
+    
+    for chat_id in users:
         try:
-            vk.wall.post(owner_id="-" + GROUP_ID, message=post_text, from_group=1)
-            with open("posts_history.txt", "a") as f:
-                f.write(f"{datetime.now()} - {post_text}\n")
-            return jsonify({"status": "published"}), 200
+            await context.bot.send_message(chat_id=chat_id, text=message_text)
         except Exception as e:
-            print("Ошибка публикации:", e)
-            return jsonify({"status": "failed", "error": str(e)}), 500
-    return jsonify({"error": "no text"}), 400
+            print(f"Не могу отправить {chat_id}: {e}")
 
-# --- Админ-панель ---
-@app.route('/admin')
-def admin_panel():
-    cursor.execute("SELECT * FROM bankruptcy_applications")
-    applications = cursor.fetchall()
-    return render_template('admin.html', clients=applications)
+    await update.message.reply_text("Рассылка завершена!")
+    return ConversationHandler.END
 
+async def handle_generate_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    from fpdf import FPDF
 
-# --- Запуск сервера ---
+    text = update.message.text
+    pdf = FPDF()
+    pdf.add_font('DejaVu', '', 'DejaVuSans.ttf', uni=True)
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+    pdf.set_font("DejaVu", size=12)
+
+    for line in text.split('\n'):
+        pdf.cell(0, 10, txt=line, ln=True)
+
+    filename = "post.pdf"
+    pdf.output(filename)
+    await context.bot.send_document(chat_id=update.effective_chat.id, document=open(filename, "rb"))
+
+    await update.message.reply_text("Ваш PDF создан!")
+    return ConversationHandler.END
+
+# --- Отмена диалога ---
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Действие отменено.")
+    return ConversationHandler.END
+
+# --- Запуск бота ---
+def main():
+    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+
+    # --- Регистрация команд ---
+    conv_handler = ConversationHandler(
+        entry_points=[
+            CommandHandler("create_post", create_post),
+            CommandHandler("send_all", send_all),
+            CommandHandler("generate_pdf", generate_pdf_cmd)
+        ],
+        states={
+            CREATE_POST: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_create_post)],
+            SEND_ALL: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_send_all)],
+            GENERATE_PDF: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_generate_pdf)]
+        },
+        fallbacks=[CommandHandler("cancel", cancel)]
+    )
+
+    application.add_handler(conv_handler)
+    application.add_handler(CommandHandler("start", start))
+
+    print("Telegram-бот запущен...")
+    application.run_polling()
+
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
+    main()
