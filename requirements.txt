@@ -7,3 +7,4 @@ schedule
 requests
 pandas
 python-dotenv
+nest_asyncio
