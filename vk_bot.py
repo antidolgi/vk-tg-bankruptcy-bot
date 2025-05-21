@@ -1,11 +1,11 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 import vk_api
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 import os
 from dotenv import load_dotenv
 import sqlite3
 import json
-import pandas as pd
+from datetime import datetime
 
 load_dotenv()
 
@@ -18,6 +18,7 @@ CONFIRMATION_TOKEN = os.getenv("VK_CALLBACK_CONFIRMATION_TOKEN")
 vk_session = vk_api.VkApi(token=GROUP_TOKEN)
 vk = vk_session.get_api()
 
+# --- Подключение к БД ---
 conn = sqlite3.connect('clients.db', check_same_thread=False)
 cursor = conn.cursor()
 cursor.execute('''
@@ -36,6 +37,7 @@ cursor.execute('''
 ''')
 conn.commit()
 
+# --- Роут для Callback API ---
 @app.route('/callback', methods=['POST'])
 def callback():
     data = request.json
@@ -47,25 +49,28 @@ def callback():
         user_id = data['object']['message']['from_id']
         message_text = data['object']['message']['text'].strip().lower()
 
+        # --- Приветствие с кнопками ---
         if message_text in ['привет', 'start', 'старт']:
-    buttons = ["Физическое лицо", "Юридическое лицо", "Взыскание долгов"]
+            buttons = ["Физическое лицо", "Юридическое лицо", "Взыскание долгов"]
 
-    keyboard = {
-        "one_time": False,
-        "buttons": [
-            [{"action": {"type": "text", "label": btn}} for btn in buttons]
-        ]
-    }
+            keyboard = {
+                "one_time": False,
+                "buttons": [[{"action": {"type": "text", "label": btn}] for btn in buttons]
+            }
 
-    vk.messages.send(
-        user_id=user_id,
-        message="Выберите, кто вы:",
-        keyboard=json.dumps(keyboard, ensure_ascii=False),
-        random_id=0
-    )
+            vk.messages.send(
+                user_id=user_id,
+                message="Выберите, кто вы:",
+                keyboard=json.dumps(keyboard, ensure_ascii=False),
+                random_id=0
+            )
+
+        return 'ok', 200
 
     return 'ok', 200
 
+
+# --- Роут для приёма постов из Telegram ---
 @app.route('/webhook/telegram', methods=['POST'])
 def receive_telegram_post():
     data = request.json
@@ -81,11 +86,15 @@ def receive_telegram_post():
             return jsonify({"status": "failed", "error": str(e)}), 500
     return jsonify({"error": "no text"}), 400
 
+
+# --- Админ-панель ---
 @app.route('/admin')
 def admin_panel():
     cursor.execute("SELECT * FROM bankruptcy_applications")
     applications = cursor.fetchall()
     return render_template('admin.html', clients=applications)
 
+
+# --- Запуск сервера ---
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
