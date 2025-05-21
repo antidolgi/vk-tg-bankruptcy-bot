@@ -1,16 +1,82 @@
-from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    MessageHandler,
+    filters,
+    ContextTypes,
+    ConversationHandler
+)
 import requests
 import os
 from dotenv import load_dotenv
 
+# --- Загрузка переменных окружения ---
 load_dotenv()
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-ADMIN_CHAT_ID = os.getenv("LAWYER_TG_ID")
-VK_WEBHOOK_URL = os.getenv("VK_WEBHOOK_URL")
+LAWYER_TG_ID = int(os.getenv("LAWYER_TG_ID", "123456789"))
+VK_WEBHOOK_URL = os.getenv("VK_WEBHOOK_URL", "https://ваш-проект.onrender.com/webhook/telegram")
 
-def generate_pdf(text):
+# --- Состояния FSM (если используем) ---
+CREATE_POST, SEND_ALL, GENERATE_PDF = range(3)
+
+# --- Команды ---
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    reply_keyboard = [["Создать пост", "Рассылка всем"], ["Сформировать PDF"]]
+    markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=False)
+    
+    await update.message.reply_text(
+        "Здравствуйте! Выберите действие:",
+        reply_markup=markup
+    )
+
+async def create_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Введите текст поста:")
+    return CREATE_POST
+
+async def send_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Введите текст для рассылки:")
+    return SEND_ALL
+
+async def generate_pdf_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Введите текст для PDF:")
+    return GENERATE_PDF
+
+# --- Обработка ввода ---
+
+async def handle_create_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    post_text = update.message.text
+    try:
+        response = requests.post(VK_WEBHOOK_URL, json={"text": post_text})
+        if response.status_code == 200:
+            await update.message.reply_text("Пост отправлен во ВК!")
+        else:
+            await update.message.reply_text(f"Ошибка: {response.status_code}")
+    except Exception as e:
+        print("Ошибка при отправке:", e)
+        await update.message.reply_text("Не удалось отправить пост во ВК.")
+    return ConversationHandler.END
+
+async def handle_send_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message_text = update.message.text
+    from vk_bot import load_clients_db
+    users = load_clients_db()  # предположим, что есть такая функция
+
+    for chat_id in users:
+        try:
+            await context.bot.send_message(chat_id=chat_id, text=message_text)
+        except Exception as e:
+            print(f"Не могу отправить {chat_id}: {e}")
+
+    await update.message.reply_text("Рассылка завершена!")
+    return ConversationHandler.END
+
+async def handle_generate_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    from fpdf import FPDF
+
+    text = update.message.text
     pdf = FPDF()
     pdf.add_font('DejaVu', '', 'DejaVuSansCondensed.ttf', uni=True)
     pdf.set_auto_page_break(auto=True, margin=15)
@@ -22,64 +88,40 @@ def generate_pdf(text):
 
     filename = "post.pdf"
     pdf.output(filename)
-    return filename
+    await context.bot.send_document(chat_id=update.effective_chat.id, document=open(filename, "rb"))
 
-async def start(update, context):
-    await update.message.reply_text("Здравствуйте! Выберите действие:\n/create_post — создать пост\n/send_all — рассылка всем\n/generate_pdf — создать PDF из текста")
+    await update.message.reply_text("Ваш PDF создан!")
+    return ConversationHandler.END
 
-async def create_post(update, context):
-    await update.message.reply_text("Введите текст поста:")
-    context.user_data['mode'] = 'create_post'
+# --- Отмена диалога ---
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Действие отменено.")
+    return ConversationHandler.END
 
-async def send_all(update, context):
-    await update.message.reply_text("Напишите текст для рассылки:")
-    context.user_data['mode'] = 'send_all'
+# --- Запуск бота ---
+def main():
+    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
-async def generate_pdf_cmd(update, context):
-    await update.message.reply_text("Введите текст для PDF:")
-    context.user_data['mode'] = 'generate_pdf'
+    # --- Регистрация команд ---
+    conv_handler = ConversationHandler(
+        entry_points=[
+            CommandHandler("create_post", create_post),
+            CommandHandler("send_all", send_all),
+            CommandHandler("generate_pdf", generate_pdf_cmd)
+        ],
+        states={
+            CREATE_POST: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_create_post)],
+            SEND_ALL: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_send_all)],
+            GENERATE_PDF: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_generate_pdf)]
+        },
+        fallbacks=[CommandHandler("cancel", cancel)]
+    )
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    mode = context.user_data.get('mode')
-    if not mode:
-        return
+    application.add_handler(conv_handler)
+    application.add_handler(CommandHandler("start", start))
 
-    text = update.message.text
+    print("Telegram-бот запущен...")
+    application.run_polling()
 
-    if mode == 'create_post':
-        try:
-            response = requests.post(VK_WEBHOOK_URL, json={"text": text})
-            if response.status_code == 200:
-                await update.message.reply_text("Пост отправлен во ВК!")
-        except Exception as e:
-            print("Ошибка отправки:", e)
-            await update.message.reply_text("Не удалось отправить во ВК.")
-
-    elif mode == 'send_all':
-        from main import load_clients_db
-        users = load_clients_db()
-        for chat_id in users:
-            try:
-                await context.bot.send_message(chat_id=chat_id, text=text)
-            except Exception as e:
-                print(f"Не могу отправить {chat_id}: {e}")
-        await update.message.reply_text("Рассылка завершена!")
-
-    elif mode == 'generate_pdf':
-        pdf_path = generate_pdf(text)
-        await context.bot.send_document(chat_id=update.effective_chat.id, document=open(pdf_path, "rb"))
-        await update.message.reply_text("Ваш PDF создан!")
-
-    context.user_data['mode'] = None
-
-app = Application().token(TELEGRAM_BOT_TOKEN).build()
-
-app.add_handler(CommandHandler("start", start))
-app.add_handler(CommandHandler("create_post", create_post))
-app.add_handler(CommandHandler("send_all", send_all))
-app.add_handler(CommandHandler("generate_pdf", generate_pdf_cmd))
-
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-
-print("Telegram-бот запущен...")
-app.run_polling()
+if __name__ == "__main__":
+    main()
