@@ -1,7 +1,7 @@
+from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 import requests
 import os
-from fpdf import FPDF
 from dotenv import load_dotenv
 
 load_dotenv()
