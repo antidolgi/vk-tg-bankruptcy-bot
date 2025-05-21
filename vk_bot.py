@@ -86,7 +86,6 @@ def receive_telegram_post():
             return jsonify({"status": "failed", "error": str(e)}), 500
     return jsonify({"error": "no text"}), 400
 
-
 # --- Админ-панель ---
 @app.route('/admin')
 def admin_panel():
