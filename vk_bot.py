@@ -1,3 +1,4 @@
+# --- Импорты ---
 from flask import Flask, request, jsonify, render_template
 import vk_api
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
@@ -7,10 +8,13 @@ import sqlite3
 import json
 from datetime import datetime
 
+# --- Загрузка переменных окружения ---
 load_dotenv()
 
+# --- Создание Flask приложения ---
 app = Flask(__name__)
 
+# --- Настройки ВКонтакте ---
 GROUP_TOKEN = os.getenv("VK_GROUP_TOKEN")
 GROUP_ID = os.getenv("VK_GROUP_ID")
 CONFIRMATION_TOKEN = os.getenv("VK_CALLBACK_CONFIRMATION_TOKEN")
@@ -66,8 +70,7 @@ def callback():
                 random_id=0
             )
 
-    return 'ok', 200
-
+        return 'ok', 200
 
 # --- Маршрут для Telegram ---
 @app.route('/webhook/telegram', methods=['POST'])
@@ -85,16 +88,17 @@ def receive_telegram_post():
             return jsonify({"status": "failed", "error": str(e)}), 500
     return jsonify({"error": "no text"}), 400
 
-
 # --- Админ-панель ---
 @app.route('/admin')
 def admin_panel():
-    conn = sqlite3.connect('clients.db')
-    cursor = conn.cursor()
     cursor.execute("SELECT * FROM bankruptcy_applications")
     applications = cursor.fetchall()
     return render_template('admin.html', clients=applications)
 
+# === Минимальная главная страница ===
+@app.route('/')
+def home():
+    return "ВК-бот работает", 200
 
 # --- Запуск сервера ---
 if __name__ == "__main__":
