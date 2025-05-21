@@ -11,10 +11,9 @@ import requests
 import os
 from dotenv import load_dotenv
 
-print("Токен:", TELEGRAM_BOT_TOKEN)
-
 # --- Загрузка переменных окружения ---
 load_dotenv()
+print("Токен:", TELEGRAM_BOT_TOKEN)
 
 TELEGRAM_BOT_TOKEN = os.getenv("7661209413:AAGGkRHIMmZexvLSYZiKHmn3ZE851ZuYKsY")
 LAWYER_TG_ID = int(os.getenv("LAWYER_TG_ID", "5981472079"))
