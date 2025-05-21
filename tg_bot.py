@@ -100,7 +100,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # --- Запуск бота ---
 def main():
-    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+    application = Application().token(TELEGRAM_BOT_TOKEN).build()
 
     # --- Регистрация команд ---
     conv_handler = ConversationHandler(
