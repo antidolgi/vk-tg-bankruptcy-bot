@@ -72,7 +72,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data['mode'] = None
 
-app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+app = Application().token(TELEGRAM_BOT_TOKEN).build()
 
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("create_post", create_post))
