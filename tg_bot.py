@@ -1,6 +1,6 @@
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
+from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
-    Application,
+    ApplicationBuilder,
     CommandHandler,
     MessageHandler,
     filters,
@@ -14,11 +14,12 @@ from dotenv import load_dotenv
 # --- Загрузка переменных окружения ---
 load_dotenv()
 
-TELEGRAM_BOT_TOKEN = os.getenv("7661209413:AAGGkRHIMmZexvLSYZiKHmn3ZE851ZuYKsY")
+# Получение токена из .env
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 LAWYER_TG_ID = int(os.getenv("LAWYER_TG_ID", "5981472079"))
 VK_WEBHOOK_URL = os.getenv("VK_WEBHOOK_URL", "https://vk-tg-bankruptcy-bot.onrender.com/webhook/telegram")
 
-# --- Состояния FSM (если используем) ---
+# --- Состояния FSM ---
 CREATE_POST, SEND_ALL, GENERATE_PDF = range(3)
 
 # --- Команды ---
@@ -99,8 +100,9 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 # --- Запуск бота ---
-def main():
-    application = Application().token(TELEGRAM_BOT_TOKEN).build()
+async def main():
+    # Создаем приложение через ApplicationBuilder
+    application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
     # --- Регистрация команд ---
     conv_handler = ConversationHandler(
@@ -121,7 +123,8 @@ def main():
     application.add_handler(CommandHandler("start", start))
 
     print("Telegram-бот запущен...")
-    application.run_polling()
+    await application.run_polling()
 
 if __name__ == "__main__":
-    main()
+    import asyncio
+    asyncio.run(main())
