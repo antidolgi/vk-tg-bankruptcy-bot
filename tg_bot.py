@@ -11,17 +11,18 @@ from flask import Flask
 import requests
 import os
 from dotenv import load_dotenv
-import asyncio
-import nest_asyncio
 from threading import Thread
 
-nest_asyncio.apply()
+# --- Загрузка переменных окружения ---
 load_dotenv()
 
 # --- Переменные окружения ---
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 LAWYER_TG_ID = int(os.getenv("LAWYER_TG_ID", "5981472079"))
 VK_WEBHOOK_URL = os.getenv("VK_WEBHOOK_URL", "https://vk-tg-bankruptcy-bot.onrender.com/webhook/telegram ")
+
+if not TELEGRAM_BOT_TOKEN:
+    raise ValueError("Не установлен TELEGRAM_BOT_TOKEN в .env или в переменных окружения")
 
 # --- Состояния FSM ---
 CREATE_POST, SEND_ALL, GENERATE_PDF = range(3)
@@ -113,11 +114,9 @@ def run_server():
     app.run(host="0.0.0.0", port=port)
 
 # --- Запуск бота ---
-async def main():
-    # Создание приложения
+def main():
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
-    # FSM диалоги
     conv_handler = ConversationHandler(
         entry_points=[
             CommandHandler("create_post", create_post),
@@ -136,11 +135,11 @@ async def main():
     application.add_handler(CommandHandler("start", start))
 
     print("Telegram-бот запущен...")
-    await application.run_polling()
+    application.run_polling()
 
 # --- Запуск Flask + Telegram бота ---
 if __name__ == "__main__":
     server_thread = Thread(target=run_server, daemon=True)
     server_thread.start()
 
-    asyncio.run(main())
+    main()
