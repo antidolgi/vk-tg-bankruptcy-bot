@@ -137,6 +137,7 @@ def main():
     print("Telegram-бот запущен...")
     application.run_polling()
 
+
 # --- Запуск Flask + Telegram бота ---
 if __name__ == "__main__":
     server_thread = Thread(target=run_server, daemon=True)
