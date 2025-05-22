@@ -1,6 +1,6 @@
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
-    ApplicationBuilder,
+    Application,
     CommandHandler,
     MessageHandler,
     filters,
@@ -18,7 +18,7 @@ from threading import Thread
 nest_asyncio.apply()
 load_dotenv()
 
-# --- Загрузка переменных окружения ---
+# --- Переменные окружения ---
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 LAWYER_TG_ID = int(os.getenv("LAWYER_TG_ID", "5981472079"))
 VK_WEBHOOK_URL = os.getenv("VK_WEBHOOK_URL", "https://vk-tg-bankruptcy-bot.onrender.com/webhook/telegram ")
@@ -65,7 +65,7 @@ async def handle_create_post(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def handle_send_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message_text = update.message.text
     from vk_bot import load_clients_db
-    users = load_clients_db()  # предположим, что есть такая функция
+    users = load_clients_db()  # предположим, что такая функция существует
 
     for chat_id in users:
         try:
@@ -101,7 +101,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Действие отменено.")
     return ConversationHandler.END
 
-# === Flask сервер ===
+# === Flask сервер для Render.com ===
 app = Flask(__name__)
 
 @app.route('/')
@@ -114,8 +114,10 @@ def run_server():
 
 # --- Запуск бота ---
 async def main():
-    application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+    # Создание приложения
+    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
+    # FSM диалоги
     conv_handler = ConversationHandler(
         entry_points=[
             CommandHandler("create_post", create_post),
@@ -136,7 +138,7 @@ async def main():
     print("Telegram-бот запущен...")
     await application.run_polling()
 
-# --- Запуск Flask + бота ---
+# --- Запуск Flask + Telegram бота ---
 if __name__ == "__main__":
     server_thread = Thread(target=run_server, daemon=True)
     server_thread.start()
